@@ -1,0 +1,266 @@
+---
+title: "Problem Set 3 - Statistics"
+format: html
+editor: visual
+---
+
+## Problem Set 3: Bats
+
+Normal set up code:
+
+```{r}
+rm(list = ls())
+library(tidyverse)
+library(here)
+library(ggfortify)
+library(multcomp)
+```
+
+Read in and examine the data
+
+```{r}
+bats <- read.csv(here("Data", "bat_data.csv"))
+
+glimpse(bats)
+```
+
+Looks like we have 9 variables and 9 variables. There are 5 character variables and 5 numeric/integer variables. Based on the questions we're asking, I will change 3 of the character variables into factor variables.
+
+Make Species, age, sex into factor variables
+
+```{r}
+bats$Species <- as.factor(bats$Species)
+levels(bats$Species)  #theres no typos in the data, we have the correct number of levels 
+
+```
+
+```{r}
+bats$age <- as.factor(bats$age)
+levels(bats$age)  #We're supposed to have two levels
+```
+
+```{r}
+bats$sex <- as.factor(bats$sex)
+levels(bats$sex)
+```
+
+Look at numeric data for outliers
+
+```{r}
+ggplot(bats, aes(x = mass_g, y = body_length_mm)) + 
+  geom_point()
+
+ggplot(bats, aes(x = tick_num, y = tail_length_mm)) + 
+  geom_point()
+```
+
+Doesn't look like outliers will be an issue!
+
+Start Analysis:
+
+A. Does body mass differ between these five species of bats and, if so, how does body mass differ between the species?
+
+For this question, I would run an ANOVA because we have a ratio response variable and a categorical predictor variable, and we're looking for a difference in means between groups.
+
+**Build and Visualize the Model:**
+
+```{r}
+bats_modA <- lm(mass_g ~ Species, data = bats)
+
+ggplot(bats, aes(x = Species, y = mass_g)) + 
+  geom_boxplot() + 
+  theme_bw()
+```
+
+Based on the boxplot, I would expect that the body mass for EPFU and LACI would be higher than the rest.
+
+**Check Assumptions**
+
+```{r}
+autoplot(bats_modA, smooth.colour = NA)
+```
+
+Looks okay
+
+**Make Summary and Anova Table**
+
+```{r}
+summary(bats_modA)
+
+anova(bats_modA)
+```
+
+Based on the tables, there is a significant difference between the body mass for different species (F = 792.9, p = \<2.2e-16). Now test to see which are different.
+
+**Tukey HSD Post-Hoc Test:**
+
+```{r}
+phcA <- glht(bats_modA, linfct = mcp(Species = "Tukey"))
+summary(phcA)
+```
+
+```{r}
+cld(phcA)
+```
+
+Looks like all of the species have significantly different mass from the other groups (p = \<1e-10).
+
+**Make a more polished figure representing results:**
+
+```{r}
+ggplot(bats, aes(x = Species, y = mass_g, color = Species)) + 
+  geom_point(size = 10, shape = "diamond", alpha = 0.5) + 
+  coord_flip()+ 
+  theme_bw()
+```
+
+B. Does body length differ between these five species of bats and, if so, how does body length differ between the species?
+
+For this question, I would run an ANOVA because we have a ratio response variable and a categorical predictor variable, and we're looking for a difference in means between groups.
+
+**Build and Visualize the model:**
+
+```{r}
+bats_modB <- lm(body_length_mm ~ Species, data = bats)
+
+ggplot(bats, aes(x = Species, y = body_length_mm)) + 
+  geom_boxplot() + 
+  theme_bw()
+```
+
+Based on the boxplot, I would expect that all of the species would have significantly different body length from the other species.
+
+**Check Assumptions**
+
+```{r}
+autoplot(bats_modB, smooth.colour = NA)
+```
+
+Looks good!
+
+**Summary and ANOVA table**
+
+```{r}
+summary(bats_modB)
+
+anova(bats_modB)
+```
+
+Based on the tables and p-values, we do have significant difference in body length between species (F = 70.498, p = \< 2.2e-16)
+
+**Tukey HSD Post-Hoc Test**
+
+```{r}
+phcB <- glht(bats_modB, linfct = mcp(Species = "Tukey"))
+summary(phcB)
+
+cld(phcB)
+```
+
+The only groups that do not have statistically significantly difference in body length are MYLU and PESU (p = 0.26222), the rest are significantly different from each other.
+
+**Make a more polished model representing the results:**
+
+```{r}
+ggplot(bats, aes(x = Species, y = body_length_mm, color = Species)) + 
+  geom_point(size = 10, alpha = 0.5) + 
+  coord_flip()+ 
+  theme_bw()
+```
+
+C. Is the number of ticks found on the bats associated with their sex or age?
+
+Because we have two categorical predictor variables and a discrete response variable, I would run a chi-squared test.
+
+**Start by making a new table with the totals for each group**
+
+```{r}
+totals <- bats |>
+  group_by(sex, age) |>
+  summarise(total.number = sum(tick_num))
+
+# Now make a bar graph becasue we have count data
+ggplot(totals, aes(x = sex, y = total.number, fill = age))+
+     geom_bar(stat = "identity", position = "dodge") + 
+  theme_bw()
+```
+
+Looks like more ticks were found on males regardless of age based on the graph.
+
+**Check assumptions**
+
+We do not have a way to graphically check the assumptions for a chi-squared test. we just assume that the sampling was conducted randomly and that the observations are independent of each other.
+
+**Make a matrix with the totals to run the chi-squared test**
+
+```{r}
+bats.mat <- xtabs(tick_num ~ sex + age, data = bats)
+bats.mat
+```
+
+**Run the chi-squared test**
+
+```{r}
+chisq.test(bats.mat)
+```
+
+There is no statistical evidence that there is a difference in the number of ticks found on bats based on their age or sex (df = 1, p = 0.5615).
+
+**Make a more formal plot**
+
+```{r}
+ggplot(totals, aes(x = sex, y = total.number, fill = age)) +
+     geom_bar(stat = "identity", position = "dodge") + 
+  theme_bw() + 
+  xlab("Sex")+ 
+  ylab("Number of Ticks") +
+  scale_fill_manual(values = c(adult = "purple", subadult = "yellow"))
+```
+
+D. Disregarding species, is there a relationship in bats between tail length and body length?
+
+We're testing for a relationship between two discrete variable, so I will run a linear regression.
+
+**Make a scatter plot to visualize the data**
+
+```{r}
+ggplot(bats, aes(x = body_length_mm, y = tail_length_mm)) + 
+  geom_point() + 
+  theme_bw()
+```
+
+Looks like there is a positive slope, Intercept estimate: 14, slope estimate: 91/120 = 0.76
+
+
+**Make the model**
+
+```{r}
+bats_modD <- lm(tail_length_mm ~ body_length_mm, data = bats)
+```
+
+**Check the assumptions**
+
+```{r}
+autoplot(bats_modD, smooth.colour = NA)
+```
+
+I don't see any issues with the assumptions
+
+**Look at summary table**
+
+```{r}
+summary(bats_modD)
+```
+
+There is a statistically significant relationship between tail length and body length (F = 1037, df = 1 and 23, p = 2.2e-16).
+
+**Make a more formal plot**
+
+```{r}
+ggplot(bats, aes(x = body_length_mm, y = tail_length_mm)) + 
+  geom_point() + 
+  geom_smooth(method = 'lm') +
+  ylab("Tail Length (mm)") + 
+  xlab("Body Length (mm)")
+  theme_bw()
+```
