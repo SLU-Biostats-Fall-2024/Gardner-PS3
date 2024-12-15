@@ -231,7 +231,6 @@ ggplot(bats, aes(x = body_length_mm, y = tail_length_mm)) +
 
 Looks like there is a positive slope, Intercept estimate: 14, slope estimate: 91/120 = 0.76
 
-
 **Make the model**
 
 ```{r}
